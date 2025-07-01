@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-dev
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-dev
+  template:
+    metadata:
+      labels:
+        app: prometheus-dev
+    spec:
+      nodeSelector:
+        node-pool: monitoring
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus-dev
+          image: prom/prometheus:latest
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.retention.time=180d"
+            - "--storage.tsdb.retention.size=4GB"
+            - "--web.external-url=/prometheus/"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-data
+              mountPath: /prometheus
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 300m
+              memory: 400Mi
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
+      securityContext:
+        fsGroup: 65534

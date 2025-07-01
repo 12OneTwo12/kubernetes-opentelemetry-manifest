@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: onetwo-api-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /data-service(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: onetwo-data-service-dev-svc
+                port:
+                  number: 8080
+
+          - path: /event-service(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: onetwo-event-service-dev-svc
+                port:
+                  number: 8080
+
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: onetwo-api-docs-homepage-service-dev-svc
+                port:
+                  number: 8080

@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onetwo-api-docs-homepage-service-dev
+  labels:
+    app: onetwo-api-docs-homepage-service-dev
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: onetwo-api-docs-homepage-service-dev
+  template:
+    metadata:
+      labels:
+        app: onetwo-api-docs-homepage-service-dev
+    spec:
+      imagePullSecrets:
+        - name: onetwo-docker-secret
+      nodeSelector:
+        node-pool: default
+      containers:
+        - name: onetwo-api-docs-homepage-service-dev
+          image: asia-northeast3-docker.pkg.dev/onetwo-dev/onetwo-dev/api-docs-homepage:eb0b46cbb0fd7beab82f4755ae65a777a627dbbf
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 1
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 1
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 120
+            failureThreshold: 5
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 80Mi
+            limits:
+              cpu: 80m
+              memory: 100Mi
+          securityContext:
+            runAsUser: 2000
+            runAsNonRoot: true
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}

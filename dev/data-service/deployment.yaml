@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onetwo-data-service-dev
+  labels:
+    app: onetwo-data-service-dev
+spec:
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: onetwo-data-service-dev
+  template:
+    metadata:
+      labels:
+        app: onetwo-data-service-dev
+    spec:
+      imagePullSecrets:
+        - name: onetwo-gcp-docker-secret
+      nodeSelector:
+        node-pool: default
+      securityContext:
+        runAsUser: 2000
+        runAsNonRoot: true
+        fsGroup: 2000
+      initContainers:
+        - name: otel-agent-downloader
+          image: curlimages/curl:8.7.1
+          command:
+            - sh
+            - -c
+            - curl -sSL -o /otel/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.14.0/opentelemetry-javaagent.jar
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+      containers:
+        - name: onetwo-data-service-dev
+          image: asia-northeast3-docker.pkg.dev/onetwo-dev/onetwo-dev/data-service:52b9842601a34d3db8d5b44439fd81a47fcb9fd0
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: '{ "server.port": 8080, "spring.profiles.active": "dev", "spring.cloud.config.profile": "dev", "spring.cloud.config.label": "main" }'
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://localhost:4317
+            - name: OTEL_SERVICE_NAME
+              value: data-service
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=dev
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:MinRAMPercentage=50.0 -XX:MaxRAMPercentage=80.0 -XX:+AlwaysPreTouch -javaagent:/otel/opentelemetry-javaagent.jar -Dotel.javaagent.enabled=true -Dotel.metrics.exporter=otlp -Dotel.traces.exporter=otlp -Dotel.logs.exporter=otlp -Dotel.exporter.otlp.endpoint=http://localhost:4317 -Dotel.exporter.otlp.protocol=grpc -Dotel.instrumentation.logging.auto-attributes.enabled=true"
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 1
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 1
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 120
+            failureThreshold: 5
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 200m
+              memory: 300Mi
+            limits:
+              cpu: 400m
+              memory: 500Mi
+          securityContext:
+            runAsUser: 2000
+            runAsNonRoot: true
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.98.0
+          args:
+            - "--config=/etc/otel/config.yaml"
+          ports:
+            - containerPort: 4317
+          volumeMounts:
+            - name: otel-config
+              mountPath: /etc/otel
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+        - name: otel-config
+          configMap:
+            name: otel-collector-config

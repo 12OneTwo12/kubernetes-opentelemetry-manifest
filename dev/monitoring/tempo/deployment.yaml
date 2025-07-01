@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo-dev
+  namespace: monitoring
+  labels:
+    app: tempo-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo-dev
+  template:
+    metadata:
+      labels:
+        app: tempo-dev
+    spec:
+      nodeSelector:
+        node-pool: monitoring
+      containers:
+        - name: tempo
+          image: grafana/tempo:2.6.1
+          args:
+            - "-config.file=/etc/tempo/config.yaml"
+          ports:
+            - containerPort: 3200   # tempo query
+            - containerPort: 4317   # OTLP gRPC ingest
+          volumeMounts:
+            - name: tempo-config
+              mountPath: /etc/tempo
+            - name: tempo-data
+              mountPath: /tempo-data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 300m
+              memory: 400Mi
+      securityContext:
+        fsGroup: 65534  # tempo default user
+      volumes:
+        - name: tempo-config
+          configMap:
+            name: tempo-config
+        - name: tempo-data
+          persistentVolumeClaim:
+            claimName: tempo-pvc

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-dev-svc:9090
+        isDefault: true
+        version: 1
+        editable: true
+        
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki-dev-svc:3100
+        version: 1
+        editable: true
+        jsonData:
+          derivedFields:
+            - name: "traceID"
+              matcherRegex: "traceid\":\"([a-f0-9]+)"
+              url: "$${__value.raw}"
+              datasourceUid: "tempo"
+      
+      - name: Tempo
+        type: tempo
+        access: proxy
+        url: http://tempo-dev-svc:3200
+        uid: tempo
+        version: 1
+        editable: true
+        jsonData:
+          tracesToLogs:
+            datasourceUid: "Loki"
+            filterByTraceID: false
+            filterBySpanID: false
+            tags: ['service.name']
+            spanStartTimeShift: "-1h"
+            spanEndTimeShift: "1h"
+            lokiSearch: true
+            queryType: "range"
+            linesLimit: 1000
+            customQuery: true
+            query: '{${__tags}} |= "\"traceid\":\"${__span.traceId}\"" | json | line_format "{{.body}}"'
+          nodeGraph:
+            enabled: true
+          serviceMap:
+            datasourceUid: "Prometheus"

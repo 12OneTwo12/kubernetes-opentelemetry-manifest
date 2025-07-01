@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: onetwo-api-docs-homepage-service-dev-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: onetwo-api-docs-homepage-service
+---

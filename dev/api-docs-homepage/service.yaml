@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: onetwo-api-docs-homepage-service-dev-svc
+spec:
+  selector:
+    app: onetwo-api-docs-homepage-service-dev
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-dev
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-dev
+  template:
+    metadata:
+      labels:
+        app: grafana-dev
+    spec:
+      nodeSelector:
+        node-pool: monitoring
+      containers:
+        - name: grafana-dev
+          image: grafana/grafana:12.0.0
+          env:
+            - name: GF_SERVER_ROOT_URL
+              value: /grafana/
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+            limits:
+              cpu: 300m
+              memory: 400Mi
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: grafana-datasources
+          configMap:
+            name: grafana-datasources
+      securityContext:
+        fsGroup: 472

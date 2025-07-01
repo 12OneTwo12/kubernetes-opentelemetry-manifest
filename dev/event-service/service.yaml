@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: onetwo-event-service-dev-svc
+spec:
+  selector:
+    app: onetwo-event-service-dev
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
