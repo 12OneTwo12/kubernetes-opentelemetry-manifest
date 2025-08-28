@@ -1,0 +1,85 @@
+# Redis Cluster Configuration for Development
+global:
+  redis:
+    password: ""  # No password for dev environment
+
+auth:
+  enabled: false  # Disable authentication for dev
+
+master:
+  count: 3  # 3 master nodes for cluster mode
+  persistence:
+    enabled: true
+    size: 4Gi  # Smaller size for dev
+    storageClass: ""  # Use default storage class
+  service:
+    type: ClusterIP  # Internal access only
+    ports:
+      redis: 6379
+  resources:
+    requests:
+      memory: "128Mi"  # Lower resources for dev
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+replica:
+  replicaCount: 1  # Minimal replicas for dev
+  persistence:
+    enabled: true
+    size: 4Gi  # Smaller size for dev
+    storageClass: ""  # Use default storage class
+  resources:
+    requests:
+      memory: "128Mi"  # Lower resources for dev
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+sentinel:
+  enabled: false  # Disable sentinel for cluster mode
+
+cluster:
+  enabled: true
+  slaveCount: 1  # Minimal slaves for dev
+
+service:
+  type: ClusterIP  # Internal access only within kubernetes cluster
+  port: 6379
+  clusterIP: ""
+  annotations: {}
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+networkPolicy:
+  enabled: true  # Restrict to internal access only
+  allowExternal: false
+  ingressRules:
+    - podSelector:
+        matchLabels:
+          environment: dev
+
+tls:
+  enabled: false
+
+volumePermissions:
+  enabled: false
+
+sysctl:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: 12-debian-12
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
