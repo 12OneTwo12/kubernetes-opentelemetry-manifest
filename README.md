@@ -73,6 +73,5 @@ kubectl apply -f dev/monitoring-ingress.yaml
 
 ## 참고사항
 
-- 이 매니페스트는 개발 환경(dev)용으로 설계되었습니다.
 - 모든 서비스는 OpenTelemetry를 통한 관측성을 갖추고 있습니다.
 - 각 서비스는 적절한 리소스 제한과 프로브 설정이 되어 있습니다.
