@@ -17,11 +17,14 @@ spec:
         node-pool: monitoring
       containers:
         - name: loki-dev
-          image: grafana/loki:2.9.2
+          image: grafana/loki:3.0.0
           args:
             - -config.file=/etc/loki/loki-config.yaml
           ports:
             - containerPort: 3100
+              name: http
+            - containerPort: 9095
+              name: grpc
           volumeMounts:
             - name: loki-config
               mountPath: /etc/loki
@@ -29,11 +32,11 @@ spec:
               mountPath: /loki
           resources:
             requests:
-              cpu: 100m
-              memory: 200Mi
-            limits:
               cpu: 300m
               memory: 400Mi
+            limits:
+              cpu: 600m
+              memory: 800Mi
       securityContext:
         fsGroup: 10001
       volumes:

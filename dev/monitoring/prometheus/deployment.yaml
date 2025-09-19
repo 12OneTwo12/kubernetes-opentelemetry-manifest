@@ -24,6 +24,10 @@ spec:
             - "--storage.tsdb.retention.time=180d"
             - "--storage.tsdb.retention.size=4GB"
             - "--web.external-url=/prometheus/"
+            - "--enable-feature=exemplar-storage"
+            - "--enable-feature=otlp-write-receiver"
+            - "--web.enable-remote-write-receiver"
+            - "--query.max-samples=50000000"
           ports:
             - containerPort: 9090
           volumeMounts:

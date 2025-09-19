@@ -10,23 +10,39 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        url: http://prometheus-dev-svc:9090
+        url: http://prometheus-dev-svc:9090/prometheus
+        uid: prometheus
         isDefault: true
         version: 1
         editable: true
-        
+        jsonData:
+          timeInterval: "60s"
+          httpMethod: POST
+          exemplarTraceIdDestinations:
+            - datasourceUid: tempo
+              name: trace_id
+      
       - name: Loki
         type: loki
         access: proxy
         url: http://loki-dev-svc:3100
+        uid: loki
         version: 1
         editable: true
         jsonData:
           derivedFields:
-            - name: "traceID"
-              matcherRegex: "traceid\":\"([a-f0-9]+)"
+            # Match trace_id in log attributes
+            - name: "TraceID"
+              matcherRegex: "trace_id\":\"([a-f0-9]+)"
               url: "$${__value.raw}"
-              datasourceUid: "tempo"
+              datasourceUid: tempo
+              urlDisplayLabel: "View Trace"
+            # Match trace_id in log line
+            - name: "TraceID"
+              matcherRegex: "\\[trace_id=([a-f0-9]+)\\]"
+              url: "$${__value.raw}"
+              datasourceUid: tempo
+              urlDisplayLabel: "View Trace"
       
       - name: Tempo
         type: tempo
@@ -37,18 +53,37 @@ data:
         editable: true
         jsonData:
           tracesToLogs:
-            datasourceUid: "Loki"
-            filterByTraceID: false
+            datasourceUid: loki
+            filterByTraceID: true
             filterBySpanID: false
-            tags: ['service.name']
+            tags: ['service', 'namespace', 'environment', 'pod']
+            mapTagNamesEnabled: true
+            mappedTags:
+              - key: service
+                value: service.name
+              - key: pod
+                value: k8s.pod.name
+              - key: namespace
+                value: service.namespace
             spanStartTimeShift: "-1h"
             spanEndTimeShift: "1h"
-            lokiSearch: true
-            queryType: "range"
-            linesLimit: 1000
-            customQuery: true
-            query: '{${__tags}} |= "\"traceid\":\"${__span.traceId}\"" | json | line_format "{{.body}}"'
+          tracesToMetrics:
+            datasourceUid: prometheus
+            tags:
+              - key: service.name
+                value: service_name
+              - key: service.namespace
+                value: namespace
+            queries:
+              - name: "Request rate"
+                query: "sum(rate(http_server_request_duration_milliseconds_count{service_name=\"$${service.name}\"}[5m]))"
+              - name: "Error rate"
+                query: "sum(rate(http_server_request_duration_milliseconds_count{service_name=\"$${service.name}\",http_response_status_code=~\"5..\"}[5m]))"
           nodeGraph:
             enabled: true
           serviceMap:
-            datasourceUid: "Prometheus"
+            datasourceUid: prometheus
+          search:
+            hide: false
+          lokiSearch:
+            datasourceUid: loki

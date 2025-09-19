@@ -7,6 +7,11 @@ spec:
   selector:
     app: prometheus-dev
   ports:
-    - port: 9090
+    - name: web
+      port: 9090
       targetPort: 9090
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 9090
+      protocol: TCP
   type: ClusterIP

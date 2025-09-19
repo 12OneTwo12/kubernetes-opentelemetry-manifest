@@ -8,7 +8,9 @@ data:
       otlp:
         protocols:
           grpc:
+            endpoint: 0.0.0.0:4317
           http:
+            endpoint: 0.0.0.0:4318
     
     processors:
       batch:
@@ -16,13 +18,69 @@ data:
         send_batch_size: 1024
       attributes:
         actions:
+          # Add trace context to logs for correlation
           - key: "trace_id"
             from_context: "trace_id"
             action: "insert"
+          - key: "span_id"
+            from_context: "span_id"
+            action: "insert"
+      transform/logs:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              # Unified labels for Grafana correlation
+              - set(attributes["service_name"], resource.attributes["service.name"])
+              - set(attributes["service_namespace"], resource.attributes["service.namespace"])
+              - set(attributes["environment"], resource.attributes["environment"])
+              - set(attributes["instance"], resource.attributes["service.instance.id"])
+              - set(attributes["pod"], resource.attributes["pod"])
+              - set(attributes["container"], resource.attributes["container"])
+              # Keep trace context for correlation
+              - set(attributes["trace_id"], attributes["trace_id"])
+              - set(attributes["span_id"], attributes["span_id"])
+              - set(attributes["deployment_environment_name"], attributes["environment"])
+      transform/metrics:
+        error_mode: ignore
+        metric_statements:
+          - context: resource
+            statements:
+              - set(attributes["service_name"], attributes["service.name"])
+              - set(attributes["service_namespace"], attributes["service.namespace"])
+              - set(attributes["deployment_environment_name"], attributes["environment"])
+      transform/traces:
+        error_mode: ignore
+        trace_statements:
+          - context: resource
+            statements:
+              - set(attributes["service_name"], attributes["service.name"])
       resource:
         attributes:
+          # Common labels for correlation
+          - key: environment
+            value: "dev"
+            action: upsert
+          - key: deployment.environment
+            value: "dev"
+            action: upsert
+          - key: namespace
+            value: "default"
+            action: upsert
           - key: service.name
             from_attribute: service.name
+            action: upsert
+          - key: service.namespace
+            value: "default"
+            action: upsert
+          - key: service.instance.id
+            from_attribute: host.name
+            action: insert
+          - key: pod
+            from_attribute: host.name
+            action: insert
+          - key: container
+            value: "app"
             action: insert
     
     exporters:
@@ -30,10 +88,21 @@ data:
         endpoint: "http://tempo-dev-svc.monitoring.svc.cluster.local:4317"
         tls:
           insecure: true
-      prometheus:
-        endpoint: "0.0.0.0:9090"
-      loki:
-        endpoint: "http://loki-dev-svc.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      prometheusremotewrite:
+        endpoint: "http://prometheus-dev-svc.monitoring.svc.cluster.local:9090/prometheus/api/v1/write"
+        tls:
+          insecure: true
+        resource_to_telemetry_conversion:
+          enabled: true
+        target_info:
+          enabled: true
+        add_metric_suffixes: false
+      otlphttp/loki:
+        endpoint: "http://loki-dev-svc.monitoring.svc.cluster.local:3100/otlp"
+        headers:
+          "X-Scope-OrgID": "default"
+        tls:
+          insecure: true
       logging:
         loglevel: info
 
@@ -41,13 +110,13 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [resource, batch]
+          processors: [resource, transform/traces, batch]
           exporters: [otlp/tempo, logging]
         metrics:
           receivers: [otlp]
-          processors: [batch]
-          exporters: [prometheus, logging]
+          processors: [resource, transform/metrics, batch]
+          exporters: [prometheusremotewrite, logging]
         logs:
           receivers: [otlp]
-          processors: [batch, attributes]
-          exporters: [loki, logging]
+          processors: [resource, attributes, transform/logs, batch]
+          exporters: [otlphttp/loki, logging]
